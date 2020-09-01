@@ -1,0 +1,40 @@
+{
+  "project_info": {
+    "project_number": "430800765258",
+    "firebase_url": "https://bait2123-202006-07.firebaseio.com",
+    "project_id": "bait2123-202006-07",
+    "storage_bucket": "bait2123-202006-07.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:430800765258:android:dc5a2dac38a2db7730c1b3",
+        "android_client_info": {
+          "package_name": "com.example.iotassignment"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "430800765258-hdqtrgr058a9v15ke340fjk9afvrhg5b.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBe13Ilh566xkWloTfUsBxJ1zIcP6xk5X0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "430800765258-hdqtrgr058a9v15ke340fjk9afvrhg5b.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
