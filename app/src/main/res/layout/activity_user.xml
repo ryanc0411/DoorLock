@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:background="@color/colorAccent"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    tools:context=".PinLoginActivity">
+
+    <com.hanks.passcodeview.PasscodeView
+        android:layout_height="match_parent"
+        android:layout_width="match_parent"
+        android:id="@+id/passcode_view"
+        app:firstInputTip="Enter a PIN of 6 digits "
+        app:passcodeLength="6"
+        android:background="@android:color/holo_blue_bright"
+        app:correctStateColor="@android:color/holo_green_light"
+        app:wrongStateColor="@android:color/holo_red_light"
+        app:numberTextColor="@android:color/darker_gray"/>
+</RelativeLayout>

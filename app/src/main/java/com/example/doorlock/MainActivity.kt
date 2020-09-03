@@ -29,20 +29,21 @@ class MainActivity : AppCompatActivity(){
 
     private val TAG = MainActivity::getLocalClassName.toString()
 
-    var LoggedIn_User_Email = "user1@gmail.com"
+
+    private lateinit var sharedPreferences: SharedPreferences
+    var LoggedIn_User_Email = "PW5Y-9FTx-V9rE-1"
     private lateinit var biometricPrompt: BiometricPrompt
     private lateinit var promptInfo: BiometricPrompt.PromptInfo
     private lateinit var biometricManager: BiometricManager
-    private lateinit var sharedPreferences1: SharedPreferences
+    var pinNum = ""
     var loginAttempt = 0
-    var door = 0
     private val doorMACADDRESSS = "PW5Y-9FTx-V9rE"
-
-
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+
+        sharedPreferences = this.getSharedPreferences("PinNumber", Activity.MODE_PRIVATE)
 
         // Logging set to help debug issues, remove before releasing your app.
         OneSignal.setLogLevel(OneSignal.LOG_LEVEL.VERBOSE, OneSignal.LOG_LEVEL.NONE);
@@ -53,11 +54,7 @@ class MainActivity : AppCompatActivity(){
             .unsubscribeWhenNotificationsAreDisabled(true)
             .init()
 
-        OneSignal.sendTag("User_ID","user1@gmail.com")
-        sharedPreferences1 = this.getSharedPreferences("Door",Activity.MODE_PRIVATE)
-        door = sharedPreferences1.getInt("create",0)
-
-        if(door == 0) {
+        OneSignal.sendTag("User_ID","PW5Y-9FTx-V9rE-1")
 
             val options = FirebaseOptions.Builder()
                 .setProjectId("doorlock-c8b93")
@@ -67,20 +64,60 @@ class MainActivity : AppCompatActivity(){
                 .build()
 
             FirebaseApp.initializeApp(this, options, "DoorLock");
-            door ++;
-        }
+
+
+
+        FirebaseDatabase.getInstance()
+            .getReference("PI_07_CONTROL")
+            .child("relay")
+            .addListenerForSingleValueEvent(object : ValueEventListener {
+                override fun onCancelled(error: DatabaseError) {
+                    TODO("Not yet implemented")
+                }
+
+                override fun onDataChange(snapshot: DataSnapshot) {
+                    if(snapshot.getValue(String::class.java)=="1")
+                    {
+                        goToHomeActivity()
+                    }
+                }
+
+            })
+
         val secondDatabase = FirebaseDatabase.getInstance(FirebaseApp.getInstance("DoorLock"))
-        secondDatabase.getReference("door").child(doorMACADDRESSS).addListenerForSingleValueEvent(object:ValueEventListener{
-            override fun onCancelled(error: DatabaseError) {
-                TODO("Not yet implemented")
-            }
 
-            override fun onDataChange(ds: DataSnapshot) {
-                loginAttempt = ds.child("currentLoginAttempt").getValue(Int::class.java)!!
+        secondDatabase.getReference("door")
+            .child(doorMACADDRESSS)
+            .child("pinNumber")
+            .addListenerForSingleValueEvent(object : ValueEventListener{
+                override fun onCancelled(error: DatabaseError) {
+                    TODO("Not yet implemented")
+                }
 
-            }
+                override fun onDataChange(snapshot: DataSnapshot) {
+                    val editor1: SharedPreferences.Editor = sharedPreferences.edit()
+                    editor1.putString("PIN", snapshot.getValue(String::class.java).toString() )
+                    editor1.apply()
 
-        })
+                }
+
+            })
+
+        secondDatabase.getReference("door")
+            .child(doorMACADDRESSS)
+            .child("currentLoginAttempt")
+            .addListenerForSingleValueEvent(object : ValueEventListener{
+                override fun onCancelled(error: DatabaseError) {
+                    TODO("Not yet implemented")
+                }
+
+                override fun onDataChange(snapshot: DataSnapshot) {
+                    loginAttempt = snapshot.getValue(Int::class.java)!!.toInt()
+                }
+
+
+            })
+
             biometricManager = BiometricManager.from(this)
             val executor = ContextCompat.getMainExecutor(this)
 
@@ -99,24 +136,16 @@ class MainActivity : AppCompatActivity(){
                         if(loginAttempt < 3 ) {
                             goToHomeActivity()
 
-                            val editor1: SharedPreferences.Editor = sharedPreferences1.edit()
-                            editor1.putInt("create", door)
-                            editor1.commit()
+                            FirebaseDatabase.getInstance()
+                                .getReference("PI_07_CONTROL")
+                                .child("relay")
+                                .setValue("1")
 
                         }
                         else
                         {
-
-                            showToast("Use your Master APP to unlock the door")
-                            FirebaseDatabase.getInstance()
-                                .getReference("PI_07_CONTROL")
-                                .child("buzzer")
-                                .setValue("0")
-
-                            FirebaseDatabase.getInstance()
-                                .getReference("PI_07_CONTROL")
-                                .child("led")
-                                .setValue("0")
+                            showToast("You used your DoorLock MaterAPP to Blocked your dock! Use your MasterAPP to unblock it =)")
+                            sendNotification1()
                         }
                     }
 
@@ -135,6 +164,8 @@ class MainActivity : AppCompatActivity(){
                         if (loginAttempt >= 3) {
 
                             sendNotification()
+
+                            secondDatabase.getReference("door").child(doorMACADDRESSS).child("BlockStatus").setValue(1)
 
                             FirebaseDatabase.getInstance()
                                 .getReference("PI_07_CONTROL")
@@ -176,10 +207,16 @@ class MainActivity : AppCompatActivity(){
                 .build()
 
 
-
             login.setOnClickListener {
                 biometricPrompt.authenticate(promptInfo)
+
             }
+
+        pinLogin.setOnClickListener {
+            gotoPinLoginActivity()
+        }
+
+
 
 
     }
@@ -191,6 +228,13 @@ class MainActivity : AppCompatActivity(){
     private fun goToHomeActivity(){
         val intent = Intent(this, HomeActivity::class.java)
         intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+        startActivity(intent)
+
+    }
+
+    private fun gotoPinLoginActivity(){
+        val intent = Intent(this, PinLoginActivity::class.java)
+//        intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
         startActivity(intent)
 
     }
@@ -216,13 +260,6 @@ class MainActivity : AppCompatActivity(){
                     }
         }
 
-    override fun onStart() {
-        super.onStart()
-        val editor1: SharedPreferences.Editor = sharedPreferences1.edit()
-        editor1.putInt("create", 0)
-        editor1.commit()
-
-    }
 
     private fun sendNotification() {
         AsyncTask.execute {
@@ -235,46 +272,105 @@ class MainActivity : AppCompatActivity(){
                 val send_email: String
 
                 //This is a Simple Logic to Send Notification different Device Programmatically....
-                send_email = if (LoggedIn_User_Email.equals("user1@gmail.com")) {
-                    "user2@gmail.com"
+                send_email = if (LoggedIn_User_Email.equals("PW5Y-9FTx-V9rE-1")) {
+                    "PW5Y-9FTx-V9rE-2"
                 } else {
-                    "user1@gmail.com"
+                    "PW5Y-9FTx-V9rE-1"
                 }
                 try {
                     val jsonResponse: String
                     val url = URL("https://onesignal.com/api/v1/notifications")
                     val con: HttpURLConnection = url.openConnection() as HttpURLConnection
-                    con.setUseCaches(false)
-                    con.setDoOutput(true)
-                    con.setDoInput(true)
+                    con.useCaches = false
+                    con.doOutput = true
+                    con.doInput = true
                     con.setRequestProperty("Content-Type", "application/json; charset=UTF-8")
-                    con.setRequestProperty(
-                        "Authorization",
-                        "Basic NjAxZTc4YTQtNTM5NS00MDM1LThjOGUtYzAzOWVmYThkMTcz"
+                    con.setRequestProperty("Authorization", "Basic NjAxZTc4YTQtNTM5NS00MDM1LThjOGUtYzAzOWVmYThkMTcz"
                     )
-                    con.setRequestMethod("POST")
+                    con.requestMethod = "POST"
                     val strJsonBody = ("{"
                             + "\"app_id\": \"fc13ef57-ca11-497a-b114-a9ee37089691\","
                             + "\"filters\": [{\"field\": \"tag\", \"key\": \"User_ID\", \"relation\": \"=\", \"value\": \"" + send_email + "\"}],"
                             + "\"data\": {\"foo\": \"bar\"},"
-                            + "\"contents\": {\"en\": \"SomeOne Are try to open your Door! Watch up !\"}"
+                            + "\"contents\": {\"en\": \"Someone are tried to open your Door! Watch up !\"}"
                             + "}")
                     println("strJsonBody:\n$strJsonBody")
                     val sendBytes = strJsonBody.toByteArray(charset("UTF-8"))
                     con.setFixedLengthStreamingMode(sendBytes.size)
-                    val outputStream: OutputStream = con.getOutputStream()
+                    val outputStream: OutputStream = con.outputStream
                     outputStream.write(sendBytes)
-                    val httpResponse: Int = con.getResponseCode()
+                    val httpResponse: Int = con.responseCode
                     println("httpResponse: $httpResponse")
                     if (httpResponse >= HttpURLConnection.HTTP_OK
                         && httpResponse < HttpURLConnection.HTTP_BAD_REQUEST
                     ) {
-                        val scanner = Scanner(con.getInputStream(), "UTF-8")
+                        val scanner = Scanner(con.inputStream, "UTF-8")
                         jsonResponse =
                             if (scanner.useDelimiter("\\A").hasNext()) scanner.next() else ""
                         scanner.close()
                     } else {
-                        val scanner = Scanner(con.getErrorStream(), "UTF-8")
+                        val scanner = Scanner(con.errorStream, "UTF-8")
+                        jsonResponse =
+                            if (scanner.useDelimiter("\\A").hasNext()) scanner.next() else ""
+                        scanner.close()
+                    }
+                    println("jsonResponse:\n$jsonResponse")
+                } catch (t: Throwable) {
+                    t.printStackTrace()
+                }
+            }
+        }
+    }
+
+    private fun sendNotification1() {
+        AsyncTask.execute {
+            val SDK_INT = Build.VERSION.SDK_INT
+            if (SDK_INT > 8) {
+                val policy =
+                    StrictMode.ThreadPolicy.Builder()
+                        .permitAll().build()
+                StrictMode.setThreadPolicy(policy)
+                val send_email: String
+
+                //This is a Simple Logic to Send Notification different Device Programmatically....
+                send_email = if (LoggedIn_User_Email.equals("PW5Y-9FTx-V9rE-1")) {
+                    "PW5Y-9FTx-V9rE-2"
+                } else {
+                    "PW5Y-9FTx-V9rE-1"
+                }
+                try {
+                    val jsonResponse: String
+                    val url = URL("https://onesignal.com/api/v1/notifications")
+                    val con: HttpURLConnection = url.openConnection() as HttpURLConnection
+                    con.useCaches = false
+                    con.doOutput = true
+                    con.doInput = true
+                    con.setRequestProperty("Content-Type", "application/json; charset=UTF-8")
+                    con.setRequestProperty("Authorization", "Basic NjAxZTc4YTQtNTM5NS00MDM1LThjOGUtYzAzOWVmYThkMTcz"
+                    )
+                    con.requestMethod = "POST"
+                    val strJsonBody = ("{"
+                            + "\"app_id\": \"fc13ef57-ca11-497a-b114-a9ee37089691\","
+                            + "\"filters\": [{\"field\": \"tag\", \"key\": \"User_ID\", \"relation\": \"=\", \"value\": \"" + send_email + "\"}],"
+                            + "\"data\": {\"foo\": \"bar\"},"
+                            + "\"contents\": {\"en\": \"You used your DoorLock MaterAPP to Blocked your dock! Use your MasterAPP to unblock it =)\"}"
+                            + "}")
+                    println("strJsonBody:\n$strJsonBody")
+                    val sendBytes = strJsonBody.toByteArray(charset("UTF-8"))
+                    con.setFixedLengthStreamingMode(sendBytes.size)
+                    val outputStream: OutputStream = con.outputStream
+                    outputStream.write(sendBytes)
+                    val httpResponse: Int = con.responseCode
+                    println("httpResponse: $httpResponse")
+                    if (httpResponse >= HttpURLConnection.HTTP_OK
+                        && httpResponse < HttpURLConnection.HTTP_BAD_REQUEST
+                    ) {
+                        val scanner = Scanner(con.inputStream, "UTF-8")
+                        jsonResponse =
+                            if (scanner.useDelimiter("\\A").hasNext()) scanner.next() else ""
+                        scanner.close()
+                    } else {
+                        val scanner = Scanner(con.errorStream, "UTF-8")
                         jsonResponse =
                             if (scanner.useDelimiter("\\A").hasNext()) scanner.next() else ""
                         scanner.close()
